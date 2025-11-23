@@ -2,13 +2,15 @@ import csv
 import dataclasses
 import datetime
 from getpass import getpass
+import os
 import requests
+import sys
 from typing import Any
 from urllib.parse import urljoin
 
 
 BASE_URL = 'https://www.diigo.com/api/v2/'
-API_KEY = 'TODO_YOUR_API_KEY_HERE'  # Get one on https://www.diigo.com/api_keys
+API_KEY_ENV = 'DIIGO_API_KEY'
 EXPORT_FILENAME = 'diigo_export.csv'
 CHUNK_SIZE = 1024
 # E.g. 2024/11/14 05:48:28 +0000
@@ -19,6 +21,7 @@ DIIGO_DATETIME_FORMAT = '%Y/%m/%d %H:%M:%S %z'
 class Creds:
     username: str
     password: str
+    api_key: str
 
 
 @dataclasses.dataclass
@@ -72,7 +75,7 @@ class ApiException(Exception):
 def api_request(method_path: str, params: dict[str, Any], creds: Creds) -> Any:
     url = urljoin(BASE_URL, method_path)
     assert 'key' not in params
-    params = {'key': API_KEY, **params}
+    params = {'key': creds.api_key, **params}
     auth = requests.auth.HTTPBasicAuth(creds.username, creds.password)
     response = requests.get(url, params=params, auth=auth)
     if response.status_code == 200:
@@ -120,7 +123,12 @@ def get_bookmarks(creds: Creds, start: int, count: int) -> list[Bookmark]:
 
 
 def main() -> None:
-    creds = Creds(username=input('username? '), password=getpass('password? '))
+    api_key = os.environ.get(API_KEY_ENV)
+    if not api_key:
+        print(f'API key environment variable not set: {API_KEY_ENV}. Get one from https://diigo.com/api_keys',
+              file=sys.stderr)
+        exit(1)
+    creds = Creds(username=input('username? '), password=getpass('password? '), api_key=api_key)
 
     bookmarks = []
     start = 0
