@@ -12,8 +12,8 @@ from urllib.parse import urljoin
 BASE_URL = 'https://www.diigo.com/api/v2/'
 API_KEY_ENV = 'DIIGO_API_KEY'
 EXPORT_FILENAME = 'diigo_export.csv'
-CHUNK_SIZE = 1024
-# E.g. 2024/11/14 05:48:28 +0000
+CHUNK_SIZE = 100  # Note: API supports max 100! https://www.diigo.com/api_dev/docs#section-methods
+#1024 E.g. 2024/11/14 05:48:28 +0000
 DIIGO_DATETIME_FORMAT = '%Y/%m/%d %H:%M:%S %z'
 
 
@@ -107,9 +107,10 @@ def get_bookmarks(creds: Creds, start: int, count: int) -> list[Bookmark]:
         private = bookmark_obj['shared'] == 'no'
         annotations = {}
         for annotation_obj in bookmark_obj['annotations']:
-            assert annotation_obj['content'] not in annotations, annotation_obj  # TODO: Support
+            annotation = annotation_obj['content']
+            existing_comments = annotations.get(annotation, [])
             comments = [comment['content'] for comment in annotation_obj['comments']]
-            annotations[annotation_obj['content']] = comments
+            annotations[annotation] = existing_comments + comments
         bookmarks.append(Bookmark(
             url=url,
             tags=tags,
@@ -139,6 +140,7 @@ def main() -> None:
             break
         bookmarks.extend(chunk_bookmarks)
         start += CHUNK_SIZE
+    print(f'Exported {len(bookmarks)} bookmarks from Diigo.')
 
     print(f'Saving to {EXPORT_FILENAME}...')
     with open(EXPORT_FILENAME, 'w', newline='') as f:
